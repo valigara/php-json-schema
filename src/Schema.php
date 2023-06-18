@@ -355,10 +355,24 @@ class Schema extends JsonSchema implements MetaHolder, SchemaContract, HasDefaul
     private function processNumeric($data, $path)
     {
         if ($this->multipleOf !== null) {
-            $div = $data / $this->multipleOf;
-            if ($div != (int)$div && ($div = $data * (1 / $this->multipleOf)) && ($div != (int)$div)) {
+            if ($this->multipleOf == 0 && $data != 0) {
                 $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
-                    ->withData($data)->withConstraint($this->multipleOf), $path);
+                                ->withData($data)->withConstraint($this->multipleOf), $path);
+            }
+            if (extension_loaded('bcmath')) {
+                $scale = 14;
+                $number = number_format($data, $scale, '.', '');
+                $divisor = number_format($this->multipleOf, $scale, '.', '');
+                if (0 !== bccomp(bcsub($number, bcmul($divisor, bcdiv($number, $divisor, 0), $scale), $scale), 0, $scale)) {
+                    $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
+                                    ->withData($data)->withConstraint($this->multipleOf), $path);
+                }
+            } else {
+                $div = $data / $this->multipleOf;
+                if ($div != (int)$div && ($div = $data * (1 / $this->multipleOf)) && ($div != (int)$div)) {
+                    $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
+                        ->withData($data)->withConstraint($this->multipleOf), $path);
+                }
             }
         }
 
