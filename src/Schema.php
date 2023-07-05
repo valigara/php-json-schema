@@ -348,6 +348,30 @@ class Schema extends JsonSchema implements MetaHolder, SchemaContract, HasDefaul
     }
 
     /**
+     * @retun ?bool, null - no bcmath support
+     */
+    private function isValidForMultipleOfBCMath($data, $multipleOf, $scale = 14)
+    {
+        if (!extension_loaded('bcmath')) {
+            return null;
+        }
+        $number = number_format($data, $scale, '.', '');
+        $divisor = number_format($multipleOf, $scale, '.', '');
+
+        return !(0 !== bccomp(bcsub($number, bcmul($divisor, bcdiv($number, $divisor, 0), $scale), $scale), 0, $scale));
+    }
+
+    /**
+     * @retun bool
+     */
+    private function isValidForMultipleOf($data, $multipleOf)
+    {
+        $div = $data / $multipleOf;
+
+        return !($div != (int)$div && ($div = $data * (1 / $this->multipleOf)) && ($div != (int)$div));
+    }
+    
+    /**
      * @param float|int $data
      * @param string $path
      * @throws InvalidValue
@@ -359,20 +383,13 @@ class Schema extends JsonSchema implements MetaHolder, SchemaContract, HasDefaul
                 $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
                                 ->withData($data)->withConstraint($this->multipleOf), $path);
             }
-            if (extension_loaded('bcmath')) {
-                $scale = 14;
-                $number = number_format($data, $scale, '.', '');
-                $divisor = number_format($this->multipleOf, $scale, '.', '');
-                if (0 !== bccomp(bcsub($number, bcmul($divisor, bcdiv($number, $divisor, 0), $scale), $scale), 0, $scale)) {
-                    $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
-                                    ->withData($data)->withConstraint($this->multipleOf), $path);
-                }
-            } else {
-                $div = $data / $this->multipleOf;
-                if ($div != (int)$div && ($div = $data * (1 / $this->multipleOf)) && ($div != (int)$div)) {
-                    $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
-                        ->withData($data)->withConstraint($this->multipleOf), $path);
-                }
+            $isValidForMultipleOf = $this->isValidForMultipleOfBCMath($data, $this->multipleOf);
+            if (is_null($isValidForMultipleOf) || $isValidForMultipleOf === false) {
+                $isValidForMultipleOf = $this->isValidForMultipleOf($data, $this->multipleOf);
+            }
+            if (!$isValidForMultipleOf) {
+                $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
+                    ->withData($data)->withConstraint($this->multipleOf), $path);
             }
         }
 
