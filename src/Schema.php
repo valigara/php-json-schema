@@ -383,7 +383,19 @@ class Schema extends JsonSchema implements MetaHolder, SchemaContract, HasDefaul
                 $this->fail((new NumericException($data . ' is not multiple of ' . $this->multipleOf, NumericException::MULTIPLE_OF))
                                 ->withData($data)->withConstraint($this->multipleOf), $path);
             }
-            $isValidForMultipleOf = $this->isValidForMultipleOfBCMath($data, $this->multipleOf);
+            $isValidForMultipleOf = null;
+            if ($this->multipleOf < 1) {
+                [, $multipleOfDigits] = explode('.', (string) $this->multipleOf);
+                $multipleOfDigitsCount = strlen($multipleOfDigits);
+                $multipleOfLastDigit = (int) $multipleOfDigits[$multipleOfDigitsCount - 1];
+                $dataDigitsCount = strlen(explode('.', (string) $data)[1] ?? '');
+                if ($multipleOfLastDigit === 1 && $multipleOfDigitsCount >= $dataDigitsCount) {
+                    $isValidForMultipleOf = true;
+                }
+            }
+            if (is_null($isValidForMultipleOf) || $isValidForMultipleOf === false) {
+               $isValidForMultipleOf = $this->isValidForMultipleOfBCMath($data, $this->multipleOf);
+            }
             if (is_null($isValidForMultipleOf) || $isValidForMultipleOf === false) {
                 $isValidForMultipleOf = $this->isValidForMultipleOf($data, $this->multipleOf);
             }
